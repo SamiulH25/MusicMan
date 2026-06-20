@@ -359,6 +359,61 @@ def status() -> None:
     )
 
 
+@db.command("build-rules")
+@click.option(
+    "--top", "top_n",
+    type=click.IntRange(100, 100000),
+    default=10000,
+    show_default=True,
+    help="Number of top artists to query.",
+)
+@click.option(
+    "--output", "-o",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output rules JSON file (default: prints to stdout).",
+)
+@click.option(
+    "--cache",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Cache file to store/tag results for resumable runs.",
+)
+def build_rules_cmd(top_n: int, output: Path | None, cache: Path | None) -> None:
+    """Fetch genre tags from MusicBrainz for top artists and build rules.
+
+    Queries the top artists by recording count from the local canonical
+    database, looks up their genre tags on MusicBrainz, and updates the
+    rules JSON with comprehensive artist lists per genre.
+    """
+    from .db import DEFAULT_DB_PATH, build_rules
+
+    if not DEFAULT_DB_PATH.exists():
+        click.echo("Error: no local database found. Run 'musicman db import' first.", err=True)
+        raise click.Abort()
+
+    click.echo(f"Querying top {top_n} artists from canonical database...")
+    click.echo("This will make ~{:,} API calls (MusicBrainz rate limit: 1 req/sec).".format(top_n))
+    click.echo("")
+
+    if cache:
+        click.echo(f"Cache file: {cache}")
+
+    config = build_rules(
+        db_path=DEFAULT_DB_PATH,
+        output_path=output,
+        top_n=top_n,
+        cache_path=cache,
+    )
+
+    # Summary
+    for rule in config.get("rules", []):
+        for cond in rule.get("conditions", {}).get("any", []):
+            if cond.get("op") == "in":
+                click.echo(f"  {rule['name']}: {len(cond['value'])} artists")
+                break
+
+
 # ---------------------------------------------------------------------------
 # enrich
 # ---------------------------------------------------------------------------
@@ -519,7 +574,6 @@ def enrich(
 
     # Process files in parallel
     results: list[EnrichResult] = []
-    lock = concurrent.futures.ThreadPoolExecutor  # noqa: F841
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {
             pool.submit(
