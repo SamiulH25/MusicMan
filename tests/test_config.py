@@ -16,11 +16,12 @@ from musicman.models import Config, Defaults, Settings
 
 class TestLoadConfig:
     def test_load_default_when_no_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """No config file on disk - default Config."""
+        """No config file on disk - falls back to bundled default rules."""
         monkeypatch.chdir(tmp_path)
         cfg = load_config()
         assert isinstance(cfg, Config)
-        assert cfg.rules == []
+        # Should have the bundled default rules (not empty)
+        assert len(cfg.rules) > 0
         assert isinstance(cfg.defaults, Defaults)
         assert isinstance(cfg.settings, Settings)
 

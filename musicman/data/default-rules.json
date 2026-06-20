@@ -1,0 +1,286 @@
+{
+  "$schema": "musicman-config-v1",
+  "rules": [
+    {
+      "name": "Pop",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^pop" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^synthpop" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^k.?pop" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^dance.?pop" },
+          { "tag": "artist", "op": "in", "value": ["Adele","Ariana Grande","Beyonce","Billie Eilish","Britney Spears","Bruno Mars","Charli XCX","Dua Lipa","Ed Sheeran","Elton John","Harry Styles","Justin Bieber","Katy Perry","Lady Gaga","Lana Del Rey","Madonna","Mariah Carey","Michael Jackson","Olivia Rodrigo","Prince","Rihanna","Sabrina Carpenter","Sam Smith","Selena Gomez","Shawn Mendes","Sia","Taylor Swift","The Weeknd","Whitney Houston","ABBA","Backstreet Boys","Bee Gees","Celine Dion","Cher","Cyndi Lauper","David Bowie","Duran Duran","George Michael","Justin Timberlake","Kelly Clarkson","NSYNC","Phil Collins","Robyn","Spice Girls"] }
+        ]
+      },
+      "output": "Pop/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Rock",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^rock" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^alternative" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^indie" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^punk" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^grunge" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^emo" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^progressive" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^psychedelic" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^post.?rock" },
+          { "tag": "artist", "op": "in", "value": ["AC/DC","Aerosmith","Arctic Monkeys","Black Sabbath","The Beatles","Bon Jovi","Bruce Springsteen","Coldplay","Creedence Clearwater Revival","Deep Purple","Def Leppard","The Doors","Eagles","Fleetwood Mac","Foo Fighters","Green Day","Guns N' Roses","Greta Van Fleet","Heart","Jimi Hendrix","Journey","The Killers","Kiss","Led Zeppelin","Linkin Park","Lynyrd Skynyrd","Metallica","Muse","Nirvana","Oasis","Pearl Jam","Pink Floyd","Queen","Radiohead","Rage Against the Machine","Red Hot Chili Peppers","The Rolling Stones","Rush","Smashing Pumpkins","Soundgarden","The Who","Tom Petty","U2","Van Halen","Weezer","The White Stripes","ZZ Top"] }
+        ]
+      },
+      "output": "Rock/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Metal",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^metal" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^heavy.?metal" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^death.?metal" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^black.?metal" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^doom" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^thrash" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^power.?metal" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^metalcore" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^deathcore" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^nu.?metal" },
+          { "tag": "artist", "op": "in", "value": ["Amon Amarth","Arch Enemy","Behemoth","Cannibal Corpse","Children of Bodom","Dimmu Borgir","Disturbed","Gojira","Iron Maiden","Judas Priest","Korn","Lamb of God","Mastodon","Megadeth","Meshuggah","Motley Crue","Motorhead","Nightwish","Opeth","Pantera","Rob Zombie","Rammstein","Slayer","Slipknot","System of a Down","Testament","Tool","Trivium","Venom","White Zombie"] }
+        ]
+      },
+      "output": "Metal/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Hip-Hop & Rap",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^hip.?hop" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^rap" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^trap" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^grime" },
+          { "tag": "artist", "op": "in", "value": ["2Pac","50 Cent","A Tribe Called Quest","Cardi B","Chance the Rapper","Childish Gambino","Denzel Curry","Drake","Dr. Dre","Eazy-E","Eminem","Future","Ice Cube","J. Cole","Jack Harlow","Jay-Z","JID","Kanye West","Kendrick Lamar","Kid Cudi","Lil Baby","Lil Nas X","Lil Wayne","LL Cool J","Logic","Ludacris","Megan Thee Stallion","Migos","Nas","Nicki Minaj","The Notorious B.I.G.","Outkast","Pop Smoke","Post Malone","Public Enemy","Pusha T","Run-DMC","Snoop Dogg","Travis Scott","Tyler, the Creator","Wu-Tang Clan","Wiz Khalifa"] }
+        ]
+      },
+      "output": "Hip-Hop & Rap/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "R&B & Soul",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^r.?.?b" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^soul" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^neo.?soul" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^funk" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^motown" },
+          { "tag": "artist", "op": "in", "value": ["Alicia Keys","Amy Winehouse","Anderson .Paak","Aretha Franklin","Boyz II Men","Chris Brown","D'Angelo","Destiny's Child","Erykah Badu","Frank Ocean","H.E.R.","Jhene Aiko","Jill Scott","John Legend","Lauryn Hill","Leon Bridges","Luther Vandross","Mary J. Blige","Maxwell","Miguel","Ne-Yo","Otis Redding","Ray Charles","Sam Cooke","SZA","The Temptations","Toni Braxton","Usher"] }
+        ]
+      },
+      "output": "R&B & Soul/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Electronic",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^electronic" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^edm" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^dance" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^house" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^techno" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^trance" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^dubstep" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^drum.?and.?bass" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^ambient" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^idm" },
+          { "tag": "artist", "op": "in", "value": ["Aphex Twin","Avicii","Boards of Canada","Brian Eno","Calvin Harris","Daft Punk","David Guetta","Deadmau5","Disclosure","Flying Lotus","Four Tet","Jamie xx","Jean-Michel Jarre","Justice","Kraftwerk","Kygo","M83","Moby","Odesza","Pet Shop Boys","Rufus Du Sol","Skrillex","Swedish House Mafia","Tiesto","Underworld","Vangelis","Zedd"] }
+        ]
+      },
+      "output": "Electronic/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Jazz",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^jazz" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^bebop" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^swing" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^fusion" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^bossa.?nova" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^ragtime" },
+          { "tag": "artist", "op": "in", "value": ["Louis Armstrong","Count Basie","Chet Baker","Dave Brubeck","John Coltrane","Miles Davis","Duke Ellington","Bill Evans","Ella Fitzgerald","Dizzy Gillespie","Herbie Hancock","Billie Holiday","Diana Krall","Wynton Marsalis","Charles Mingus","Thelonious Monk","Charlie Parker","Oscar Peterson","Sonny Rollins","Sun Ra","Sarah Vaughan","Kenny G"] }
+        ]
+      },
+      "output": "Jazz/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Classical",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^classical" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^orchestral" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^symphony" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^opera" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^baroque" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^chamber" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^choral" },
+          { "tag": "artist", "op": "in", "value": ["Bach","Beethoven","Brahms","Chopin","Debussy","Dvorak","Handel","Haydn","Mahler","Mendelssohn","Mozart","Prokofiev","Puccini","Rachmaninoff","Ravel","Rossini","Schubert","Schumann","Shostakovich","Sibelius","Strauss","Stravinsky","Tchaikovsky","Verdi","Vivaldi","Wagner","Yo-Yo Ma","Andre Rieu","Lang Lang","Itzhak Perlman","Leopold Stokowski"] }
+        ]
+      },
+      "output": "Classical/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Country & Folk",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^country" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^folk" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^bluegrass" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^americana" },
+          { "tag": "artist", "op": "in", "value": ["Johnny Cash","Willie Nelson","Dolly Parton","Merle Haggard","George Strait","Hank Williams","Patsy Cline","Waylon Jennings","Garth Brooks","Alan Jackson","Reba McEntire","Tim McGraw","Shania Twain","Keith Urban","Carrie Underwood","Luke Bryan","Kacey Musgraves","Miranda Lambert","Chris Stapleton","Sturgill Simpson","Tyler Childers","Zach Bryan","Bob Dylan","Joan Baez","Joni Mitchell","Simon & Garfunkel","Cat Stevens","Nick Drake","Bon Iver","Fleet Foxes","The Lumineers","Mumford & Sons"] }
+        ]
+      },
+      "output": "Country & Folk/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Blues",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^blues" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^delta.?blues" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^chicago.?blues" },
+          { "tag": "artist", "op": "in", "value": ["Muddy Waters","B.B. King","Robert Johnson","Howlin' Wolf","John Lee Hooker","Buddy Guy","Albert King","Freddie King","Etta James","Willie Dixon","Koko Taylor","Lightnin' Hopkins","Son House","Taj Mahal","Stevie Ray Vaughan","Gary Clark Jr.","Joe Bonamassa","The Black Keys","Kenny Wayne Shepherd"] }
+        ]
+      },
+      "output": "Blues/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Reggae & Caribbean",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^reggae" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^ska" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^dancehall" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^dub" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^reggaeton" },
+          { "tag": "artist", "op": "in", "value": ["Bob Marley","Peter Tosh","Toots and the Maytals","Jimmy Cliff","Burning Spear","Lee Scratch Perry","King Tubby","Buju Banton","Sean Paul","Shabba Ranks","Beenie Man","Vybz Kartel"] }
+        ]
+      },
+      "output": "Reggae & Caribbean/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Latin",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^latin" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^salsa" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^bachata" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^merengue" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^reggaeton" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^tango" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^flamenco" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^samba" },
+          { "tag": "artist", "op": "in", "value": ["Shakira","Bad Bunny","Daddy Yankee","Luis Fonsi","Enrique Iglesias","Marc Anthony","Romeo Santos","J Balvin","Ozuna","Rosalia","Maluma","Nicky Jam","Karol G","Farruko","Selena","Carlos Santana","Buena Vista Social Club","Celia Cruz","Tito Puente","Hector Lavoe"] }
+        ]
+      },
+      "output": "Latin/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Soundtracks & Scores",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^soundtrack" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^score" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^musical" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^broadway" },
+          { "tag": "artist", "op": "in", "value": ["John Williams","Hans Zimmer","Ennio Morricone","Danny Elfman","Howard Shore","James Horner","Alexandre Desplat","Alan Silvestri","Michael Giacchino","Joe Hisaishi","Ramin Djawadi","Bear McCreary","Two Steps From Hell"] }
+        ]
+      },
+      "output": "Soundtracks & Scores/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Christian & Gospel",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^christian" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^gospel" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^worship" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^praise" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^spiritual" },
+          { "tag": "artist", "op": "in", "value": ["Kirk Franklin","Mahalia Jackson","Casting Crowns","Chris Tomlin","Hillsong","Lauren Daigle","TobyMac","DC Talk","Amy Grant","Michael W. Smith"] }
+        ]
+      },
+      "output": "Christian & Gospel/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "World & International",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^world" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^celtic" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^afrobeat" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^bollywood" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^bhangra" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^klezmer" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^polka" }
+        ]
+      },
+      "output": "World & International/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Children's & Holiday",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^children" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^christmas" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^holiday" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^seasonal" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^novelty" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^lullaby" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^kids" }
+        ]
+      },
+      "output": "Children's & Holiday/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    },
+    {
+      "name": "Comedy & Spoken Word",
+      "conditions": {
+        "any": [
+          { "tag": "genre", "op": "matches", "value": "(?i)^comedy" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^spoken.?word" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^podcast" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^audiobook" },
+          { "tag": "genre", "op": "matches", "value": "(?i)^poetry" }
+        ]
+      },
+      "output": "Comedy & Spoken Word/{artist}/{album}/{track:02d} - {title}{ext}",
+      "action": "move"
+    }
+  ],
+  "defaults": {
+    "output": "Other/{artist}/{album}/{track:02d} - {title}{ext}",
+    "action": "move"
+  },
+  "settings": {
+    "output_base_dir": "~/Music/Organized",
+    "overwrite": "skip",
+    "delete_empty_sources": false,
+    "follow_symlinks": false,
+    "supported_extensions": [".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wma"]
+  }
+}

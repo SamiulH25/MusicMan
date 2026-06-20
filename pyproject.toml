@@ -32,6 +32,9 @@ musicman = "musicman.cli:cli"
 [tool.setuptools.packages.find]
 include = ["musicman*"]
 
+[tool.setuptools.package-data]
+musicman = ["data/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
