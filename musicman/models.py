@@ -37,7 +37,7 @@ class Defaults:
 
 @dataclass
 class Settings:
-    output_base_dir: str = "~/Music/Organized"
+    output_base_dir: str = "./Organized"
     overwrite: Literal["skip", "overwrite", "rename"] = "skip"
     delete_empty_sources: bool = False
     follow_symlinks: bool = False

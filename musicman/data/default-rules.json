@@ -277,7 +277,7 @@
     "action": "move"
   },
   "settings": {
-    "output_base_dir": "~/Music/Organized",
+    "output_base_dir": "./Organized",
     "overwrite": "skip",
     "delete_empty_sources": false,
     "follow_symlinks": false,
