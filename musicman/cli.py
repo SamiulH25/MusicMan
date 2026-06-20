@@ -274,7 +274,7 @@ def tags(file: Path, verbose: bool) -> None:
 # ---------------------------------------------------------------------------
 
 
-@click.group()
+@cli.group()
 def db() -> None:
     """Manage the local MusicBrainz canonical database."""
 
