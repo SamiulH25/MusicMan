@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "musicman"
+version = "0.1.0"
+description = "Organize your music library by tag-based rules"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+keywords = ["music", "organizer", "metadata", "tags"]
+
+authors = [
+  {name = "musicman contributors"},
+]
+
+dependencies = [
+    "mutagen>=1.47.0",
+    "click>=8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[project.scripts]
+musicman = "musicman.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["musicman*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
