@@ -150,7 +150,7 @@ class TestEnrichCommand:
         from musicman.engine import CategorisationEngine
         from musicman.models import MusicTags
         from musicman.cli import _enrich_file
-        from unittest.mock import patch
+        from unittest.mock import patch, ANY
 
         cfg = load_config(None)
         engine = CategorisationEngine(cfg)
@@ -201,6 +201,136 @@ class TestEnrichCommand:
         from musicman.models import MusicTags
         from musicman.cli import _enrich_file
         from unittest.mock import patch
+        from pathlib import Path
+
+        cfg = load_config(None)
+        engine = CategorisationEngine(cfg)
+
+        tags = MusicTags(
+            title="Testing", artist="AC/DC", album="Test", genre="Jazz"
+        )
+
+        with patch("musicman.cli.write_tags") as mock_write:
+            result = _enrich_file(
+                Path("/mock/song.flac"), engine, tags, force=True
+            )
+            assert result.rule == "Rock"
+            assert result.tags_written == ["genre"]
+            mock_write.assert_called_once()
+            args = mock_write.call_args
+            assert args[1]["genre"] == "Rock"
+
+    def test_no_rule_match(self) -> None:
+        """Files that don't match any rule report an error, not a crash."""
+        from musicman.config import load_config
+        from musicman.engine import CategorisationEngine
+        from musicman.models import MusicTags
+        from musicman.cli import _enrich_file
+        from unittest.mock import patch
+        from pathlib import Path
+
+        cfg = load_config(None)
+        engine = CategorisationEngine(cfg)
+
+        # Unknown artist with no genre falls to Other (no rule match)
+        tags = MusicTags(title="Unknown", artist="X Æ A-12 Unknown Artist")
+
+        with patch("musicman.cli.write_tags") as mock_write:
+            result = _enrich_file(
+                Path("/mock/song.flac"), engine, tags, force=False
+            )
+            assert result.error is not None
+            assert "rule" in result.error.lower()
+            mock_write.assert_not_called()
+
+    def test_fetch_no_artist(self) -> None:
+        """--fetch with no artist+title falls back to rule matching."""
+        from musicman.config import load_config
+        from musicman.engine import CategorisationEngine
+        from musicman.models import MusicTags
+        from musicman.cli import _enrich_file
+        from musicman.sources.musicbrainz import MusicBrainzSource
+        from unittest.mock import patch
+        from pathlib import Path
+
+        cfg = load_config(None)
+        engine = CategorisationEngine(cfg)
+
+        tags = MusicTags(title="Song")  # no artist
+
+        with patch("musicman.cli.write_tags") as mock_write:
+            result = _enrich_file(
+                Path("/mock/song.flac"), engine, tags, force=False,
+                fetch=True, mb_source=MusicBrainzSource(),
+            )
+            # No artist -> no rule match -> error
+            assert result.error is not None
+            mock_write.assert_not_called()
+
+    def test_fetch_applies_mb_genre(self) -> None:
+        """--fetch uses MusicBrainz genre when available."""
+        from musicman.config import load_config
+        from musicman.engine import CategorisationEngine
+        from musicman.models import MusicTags
+        from musicman.cli import _enrich_file
+        from musicman.sources import MetadataResult
+        from unittest.mock import patch, MagicMock
+        from pathlib import Path
+
+        cfg = load_config(None)
+        engine = CategorisationEngine(cfg)
+
+        tags = MusicTags(title="Dirty Deeds", artist="AC/DC")
+
+        mb_mock = MagicMock()
+        mb_mock.fetch.return_value = MetadataResult(
+            genre="hard rock", source="musicbrainz"
+        )
+
+        with patch("musicman.cli.write_tags") as mock_write:
+            result = _enrich_file(
+                Path("/mock/song.flac"), engine, tags, force=False,
+                fetch=True, mb_source=mb_mock,
+            )
+            assert result.tags_written == ["genre"]
+            mock_write.assert_called_once()
+            args = mock_write.call_args
+            assert args[1]["genre"] == "hard rock"
+
+    def test_fetch_fills_missing_tags(self) -> None:
+        """--fetch fills missing artist, album, year from MusicBrainz."""
+        from musicman.config import load_config
+        from musicman.engine import CategorisationEngine
+        from musicman.models import MusicTags
+        from musicman.cli import _enrich_file
+        from musicman.sources import MetadataResult
+        from unittest.mock import patch, MagicMock
+        from pathlib import Path
+
+        cfg = load_config(None)
+        engine = CategorisationEngine(cfg)
+
+        # File has no genre, no album, no date
+        tags = MusicTags(title="Dirty Deeds", artist="AC/DC")
+
+        mb_mock = MagicMock()
+        mb_mock.fetch.return_value = MetadataResult(
+            genre="hard rock",
+            album="Dirty Deeds Done Dirt Cheap",
+            date="1976",
+            source="musicbrainz",
+        )
+
+        with patch("musicman.cli.write_tags") as mock_write:
+            result = _enrich_file(
+                Path("/mock/song.flac"), engine, tags, force=False,
+                fetch=True, mb_source=mb_mock,
+            )
+            assert set(result.tags_written) == {"genre", "album", "date"}
+            mock_write.assert_called_once()
+            args = mock_write.call_args
+            assert args[1]["genre"] == "hard rock"
+            assert args[1]["album"] == "Dirty Deeds Done Dirt Cheap"
         from pathlib import Path
 
         cfg = load_config(None)

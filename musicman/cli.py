@@ -18,6 +18,8 @@ from .config import (
 from .engine import CategorisationEngine
 from .executor import dry_run as print_dry_run, execute
 from .models import EnrichResult, FileResult
+from .sources import guess_tags as fetch_tags
+from .sources.musicbrainz import MusicBrainzSource
 from .utils import read_tags, scan_files, write_tags
 
 logger = logging.getLogger(__name__)
@@ -264,25 +266,55 @@ def _enrich_file(
     engine: CategorisationEngine,
     tags,
     force: bool,
+    fetch: bool = False,
+    mb_source: MusicBrainzSource | None = None,
 ) -> EnrichResult:
-    """Match *source* against rules and write genre tag if missing."""
-    rule, _ = engine._match_rule(tags)
-    rule_name = rule.name if rule else None
-    if rule_name is None:
-        return EnrichResult(source=source, error="no matching rule")
+    """Match *source* against rules and write genre tag if missing.
 
-    # Skip if genre already set (unless --force)
-    if tags.genre and not force:
-        return EnrichResult(source=source, rule=rule_name, skipped=True)
+    If *fetch* is True, query MusicBrainz first for genre and other
+    missing tags.
+    """
+    genre_to_write = None
+    extra_tags: dict[str, str] = {}
+    tags_written: list[str] = []
+    rule_name = None
+
+    # 1. Try MusicBrainz if requested
+    if fetch and mb_source is not None:
+        fetched = mb_source.fetch(source, tags)
+        if fetched.source:
+            rule_name = fetched.source
+            if fetched.genre and (force or not tags.genre):
+                genre_to_write = fetched.genre
+                tags_written.append("genre")
+            for field in ("title", "artist", "album", "date", "albumartist"):
+                val = getattr(fetched, field, None)
+                if val and not getattr(tags, field, None):
+                    extra_tags[field] = val
+                    tags_written.append(field)
+
+    # 2. Fall back to rule matching (for genre)
+    if not genre_to_write:
+        rule, _ = engine._match_rule(tags)
+        rule_name = rule.name if rule else None
+        if rule_name is None and not tags_written:
+            return EnrichResult(source=source, error="no matching rule")
+        if rule_name and (force or not tags.genre):
+            genre_to_write = rule_name
+            if "genre" not in tags_written:
+                tags_written.append("genre")
+
+    if not genre_to_write and not extra_tags:
+        return EnrichResult(source=source, rule=rule_name or "", skipped=True)
 
     try:
-        write_tags(source, genre=rule_name)
+        write_tags(source, genre=genre_to_write, **extra_tags)
         return EnrichResult(
-            source=source, rule=rule_name, tags_written=["genre"],
+            source=source, rule=rule_name or "", tags_written=tags_written,
         )
     except Exception as exc:
         return EnrichResult(
-            source=source, rule=rule_name, error=str(exc),
+            source=source, rule=rule_name or "", error=str(exc),
         )
 
 
@@ -308,6 +340,11 @@ def _enrich_file(
     help="Overwrite existing genre tags.",
 )
 @click.option(
+    "--fetch",
+    is_flag=True,
+    help="Look up missing tags from MusicBrainz (artist+title required).",
+)
+@click.option(
     "--verbose", "-v",
     is_flag=True,
     help="Show matched rule per file.",
@@ -322,17 +359,18 @@ def enrich(
     config: Path | None,
     dry_run: bool,
     force: bool,
+    fetch: bool,
     verbose: bool,
     quiet: bool,
 ) -> None:
     """Write genre tags to music files based on matching rules.
 
-    Reads each file, matches it against your rules, and writes the
-    matched rule name as the genre tag.  Files that already have a
-    genre tag are skipped (use --force to overwrite).
+    Reads each file, matches it against your rules or fetches metadata
+    from MusicBrainz, and writes missing tags back to the file.
 
-    Run this before organise to enrich your library so future runs
-    match on genre directly.
+    By default uses rule-based genre matching.  Add --fetch to also
+    look up artist, album, year, and genre from MusicBrainz for files
+    that have artist and title tags.
     """
     _setup_logging(verbose)
 
@@ -343,6 +381,7 @@ def enrich(
         sys.exit(1)
 
     engine = CategorisationEngine(cfg)
+    mb_source = MusicBrainzSource() if fetch else None
     source_list = list(sources)
 
     if not source_list:
@@ -370,7 +409,26 @@ def enrich(
             continue
 
         if dry_run:
-            # Match but don't write
+            # Simulate enrichment in dry-run mode
+            mb_tags = None
+            if fetch and mb_source is not None:
+                mb_tags = mb_source.fetch(source_path, tags)
+            if mb_tags and mb_tags.genre and (force or not tags.genre):
+                rule_name = mb_tags.source
+                tags_written = ["genre"]
+                if mb_tags.title and not tags.title:
+                    tags_written.append("title")
+                if mb_tags.artist and not tags.artist:
+                    tags_written.append("artist")
+                if mb_tags.album and not tags.album:
+                    tags_written.append("album")
+                if mb_tags.date and not tags.date:
+                    tags_written.append("date")
+                results.append(
+                    EnrichResult(source=source_path, rule=rule_name, tags_written=tags_written)
+                )
+                continue
+
             rule, _ = engine._match_rule(tags)
             rule_name = rule.name if rule else None
             if rule_name is None:
@@ -392,7 +450,7 @@ def enrich(
             )
             continue
 
-        result = _enrich_file(source_path, engine, tags, force)
+        result = _enrich_file(source_path, engine, tags, force, fetch=fetch, mb_source=mb_source)
         results.append(result)
 
     for r in results:
