@@ -39,49 +39,51 @@ class CategorisationEngine:
             self.config.settings.supported_extensions,
             self.config.settings.follow_symlinks,
         ):
-            try:
-                tags = read_tags(source_path)
-            except Exception as exc:
-                yield FileResult(
-                    source=source_path,
-                    error=f"Failed to read tags: {exc}",
-                )
-                continue
+            yield self.categorise_one(source_path)
 
-            matched_rule, matched_action = self._match_rule(tags)
-            template = (
-                matched_rule.output
-                if matched_rule
-                else self.config.defaults.output
-            )
-            action = (
-                matched_action or self.config.defaults.action
+    def categorise_one(self, source_path: Path) -> FileResult:
+        """Process a single file and return its :class:`FileResult`."""
+        try:
+            tags = read_tags(source_path)
+        except Exception as exc:
+            return FileResult(
+                source=source_path,
+                error=f"Failed to read tags: {exc}",
             )
 
-            relative_path = format_path(
-                template, tags, source_path.suffix,
-            )
-            destination = self.base_dir / relative_path
+        matched_rule, matched_action = self._match_rule(tags)
+        template = (
+            matched_rule.output
+            if matched_rule
+            else self.config.defaults.output
+        )
+        action = (
+            matched_action or self.config.defaults.action
+        )
 
-            # Skip if source == destination (already organised).
-            if source_path.resolve() == destination.resolve():
-                yield FileResult(
-                    source=source_path,
-                    destination=destination,
-                    rule=matched_rule.name if matched_rule else "defaults",
-                    action=action,
-                    tags=tags,
-                    skipped=True,
-                )
-                continue
+        relative_path = format_path(
+            template, tags, source_path.suffix,
+        )
+        destination = self.base_dir / relative_path
 
-            yield FileResult(
+        # Skip if source == destination (already organised).
+        if source_path.resolve() == destination.resolve():
+            return FileResult(
                 source=source_path,
                 destination=destination,
                 rule=matched_rule.name if matched_rule else "defaults",
                 action=action,
                 tags=tags,
+                skipped=True,
             )
+
+        return FileResult(
+            source=source_path,
+            destination=destination,
+            rule=matched_rule.name if matched_rule else "defaults",
+            action=action,
+            tags=tags,
+        )
 
     # ------------------------------------------------------------------
     # Rule matching

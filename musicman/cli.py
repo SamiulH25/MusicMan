@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import logging
 import sys
@@ -20,7 +21,7 @@ from .engine import CategorisationEngine
 from .executor import dry_run as print_dry_run, execute
 from .models import EnrichResult, FileResult
 from .sources import guess_tags as fetch_tags
-from .sources.musicbrainz import MusicBrainzSource
+from .sources.canonical import CanonicalDumpSource
 from .utils import read_tags, scan_files, write_tags
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,13 @@ def cli() -> None:
     help="Look up missing genre from MusicBrainz before organising.",
 )
 @click.option(
+    "--workers", "-j",
+    type=click.IntRange(1, 32),
+    default=4,
+    show_default=True,
+    help="Number of parallel worker threads.",
+)
+@click.option(
     "--verbose", "-v",
     is_flag=True,
     help="Show matched tags per file.",
@@ -84,6 +92,7 @@ def organise(
     dry_run: bool,
     output: Path | None,
     fetch: bool,
+    workers: int,
     verbose: bool,
     quiet: bool,
 ) -> None:
@@ -117,24 +126,42 @@ def organise(
     elif fetch and dry_run:
         _preview_canonical(source_list, cfg, verbose, quiet)
 
-    try:
-        results = list(engine.categorise(source_list))
-    except Exception as exc:
-        click.echo(f"Error during categorisation: {exc}", err=True)
-        sys.exit(1)
+    # Collect all file paths first
+    file_paths = list(scan_files(
+        source_list,
+        cfg.settings.supported_extensions,
+        cfg.settings.follow_symlinks,
+    ))
 
     if not quiet:
+        click.echo(f"Found {len(file_paths)} file(s)")
         click.echo(f"Output base: {engine.base_dir}")
         if dry_run:
             click.echo("\n-- Dry run - no files will be changed --\n")
         else:
             click.echo()
 
-        if verbose:
-            for r in results:
-                _print_verbose(r)
-        else:
-            print_dry_run(results)
+    # Process files in parallel
+    results: list[FileResult] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(engine.categorise_one, p): p for p in file_paths}
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+                results.append(result)
+                if not quiet:
+                    if verbose:
+                        _print_verbose(result)
+                    elif dry_run:
+                        _print_dry_line(result)
+            except Exception as exc:
+                path = futures[future]
+                results.append(FileResult(source=path, error=str(exc)))
+                if not quiet:
+                    click.echo(f"  [!] {path.name}: {exc}")
+
+    # Sort results to maintain stable order
+    results.sort(key=lambda r: str(r.source))
 
     # Summary
     total = len(results)
@@ -343,7 +370,7 @@ def _enrich_file(
     tags,
     force: bool,
     fetch: bool = False,
-    mb_source: MusicBrainzSource | None = None,
+    mb_source: CanonicalDumpSource | None = None,
 ) -> EnrichResult:
     """Match *source* against rules and write genre tag if missing.
 
@@ -421,6 +448,13 @@ def _enrich_file(
     help="Look up missing tags from MusicBrainz (artist+title required).",
 )
 @click.option(
+    "--workers", "-j",
+    type=click.IntRange(1, 32),
+    default=4,
+    show_default=True,
+    help="Number of parallel worker threads.",
+)
+@click.option(
     "--verbose", "-v",
     is_flag=True,
     help="Show matched rule per file.",
@@ -436,6 +470,7 @@ def enrich(
     dry_run: bool,
     force: bool,
     fetch: bool,
+    workers: int,
     verbose: bool,
     quiet: bool,
 ) -> None:
@@ -457,7 +492,7 @@ def enrich(
         sys.exit(1)
 
     engine = CategorisationEngine(cfg)
-    mb_source = MusicBrainzSource() if fetch else None
+    mb_source = CanonicalDumpSource() if fetch else None
     source_list = list(sources)
 
     if not source_list:
@@ -470,68 +505,40 @@ def enrich(
         else:
             click.echo()
 
-    results: list[EnrichResult] = []
-    for source_path in scan_files(
+    # Collect all file paths first
+    file_paths = list(scan_files(
         source_list,
         cfg.settings.supported_extensions,
         cfg.settings.follow_symlinks,
-    ):
-        try:
-            tags = read_tags(source_path)
-        except Exception as exc:
-            results.append(
-                EnrichResult(source=source_path, error=f"failed to read: {exc}")
-            )
-            continue
+    ))
 
+    if not quiet:
+        click.echo(f"Found {len(file_paths)} file(s)")
         if dry_run:
-            # Simulate enrichment in dry-run mode
-            mb_tags = None
-            if fetch and mb_source is not None:
-                mb_tags = mb_source.fetch(source_path, tags)
-            if mb_tags and mb_tags.genre and (force or not tags.genre):
-                rule_name = mb_tags.source
-                tags_written = ["genre"]
-                if mb_tags.title and not tags.title:
-                    tags_written.append("title")
-                if mb_tags.artist and not tags.artist:
-                    tags_written.append("artist")
-                if mb_tags.album and not tags.album:
-                    tags_written.append("album")
-                if mb_tags.date and not tags.date:
-                    tags_written.append("date")
-                results.append(
-                    EnrichResult(source=source_path, rule=rule_name, tags_written=tags_written)
-                )
-                continue
+            click.echo("-- Dry run - no tags will be written --\n")
 
-            rule, _ = engine._match_rule(tags)
-            rule_name = rule.name if rule else None
-            if rule_name is None:
-                results.append(
-                    EnrichResult(source=source_path, error="no matching rule")
-                )
-                continue
-            if tags.genre and not force:
-                results.append(
-                    EnrichResult(source=source_path, rule=rule_name, skipped=True)
-                )
-                continue
-            results.append(
-                EnrichResult(
-                    source=source_path,
-                    rule=rule_name,
-                    tags_written=["genre"],
-                )
-            )
-            continue
+    # Process files in parallel
+    results: list[EnrichResult] = []
+    lock = concurrent.futures.ThreadPoolExecutor  # noqa: F841
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(
+                _enrich_one_file, p, engine, mb_source, fetch, force, dry_run
+            ): p for p in file_paths
+        }
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+                results.append(result)
+                if not quiet:
+                    _print_enrich(result, verbose, dry_run)
+            except Exception as exc:
+                path = futures[future]
+                results.append(EnrichResult(source=path, error=str(exc)))
+                if not quiet:
+                    click.echo(f"  [!] {path.name}: {exc}")
 
-        result = _enrich_file(source_path, engine, tags, force, fetch=fetch, mb_source=mb_source)
-        results.append(result)
-
-    for r in results:
-        if not quiet:
-            _print_enrich(r, verbose, dry_run)
+    results.sort(key=lambda r: str(r.source))
 
     enriched = sum(1 for r in results if r.tags_written)
     skipped = sum(1 for r in results if r.skipped)
@@ -555,6 +562,54 @@ def _print_enrich(r: EnrichResult, verbose: bool, dry_run: bool) -> None:
         return
     prefix = "  [w]" if not dry_run else "  [.]"
     click.echo(f"{prefix} {r.source.name} -> genre={r.rule}")
+
+
+def _enrich_one_file(
+    source_path: Path,
+    engine: CategorisationEngine,
+    mb_source: Optional["CanonicalDumpSource"],
+    fetch: bool,
+    force: bool,
+    dry_run: bool,
+) -> EnrichResult:
+    """Process a single file for enrichment (thread-safe)."""
+    from .utils import read_tags
+
+    try:
+        tags = read_tags(source_path)
+    except Exception as exc:
+        return EnrichResult(source=source_path, error=f"failed to read: {exc}")
+
+    if dry_run:
+        mb_tags = None
+        if fetch and mb_source is not None:
+            mb_tags = mb_source.fetch(source_path, tags)
+        if mb_tags and mb_tags.genre and (force or not tags.genre):
+            rule_name = mb_tags.source
+            tags_written = ["genre"]
+            if mb_tags.title and not tags.title:
+                tags_written.append("title")
+            if mb_tags.artist and not tags.artist:
+                tags_written.append("artist")
+            if mb_tags.album and not tags.album:
+                tags_written.append("album")
+            if mb_tags.date and not tags.date:
+                tags_written.append("date")
+            return EnrichResult(
+                source=source_path, rule=rule_name, tags_written=tags_written
+            )
+
+        rule, _ = engine._match_rule(tags)
+        rule_name = rule.name if rule else None
+        if rule_name is None:
+            return EnrichResult(source=source_path, error="no matching rule")
+        if tags.genre and not force:
+            return EnrichResult(source=source_path, rule=rule_name, skipped=True)
+        return EnrichResult(
+            source=source_path, rule=rule_name, tags_written=["genre"],
+        )
+
+    return _enrich_file(source_path, engine, tags, force, fetch=fetch, mb_source=mb_source)
 
 
 # ---------------------------------------------------------------------------
@@ -660,3 +715,17 @@ def _print_verbose(r: FileResult) -> None:
             f"  {prefix}  {r.source.name}  ->  {r.destination}"
             f"{tag_str}{rule_str}"
         )
+
+
+def _print_dry_line(r: FileResult) -> None:
+    """Print a single line for dry-run output."""
+    if r.error:
+        click.echo(f"  [!] {r.source.name}: ERROR - {r.error}")
+    elif r.skipped:
+        click.echo(f"  [-] {r.source.name}: skipped (already at destination)")
+    elif r.action == "move":
+        click.echo(f"  -> {r.source.name}  ->  {r.destination}")
+    elif r.action == "copy":
+        click.echo(f"  +  {r.source.name}  ->  {r.destination}")
+    elif r.action == "symlink":
+        click.echo(f"  => {r.source.name}  ->  {r.destination}")

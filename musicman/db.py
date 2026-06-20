@@ -38,17 +38,19 @@ def import_canonical_dump(
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=OFF")
     conn.execute("PRAGMA cache_size=-8000000")  # ~8GB cache
+    conn.execute("PRAGMA temp_store=MEMORY")
+    conn.execute("PRAGMA locking_mode=EXCLUSIVE")
 
     _create_schema(conn)
 
     imported = 0
     t0 = time.monotonic()
+    conn.execute("BEGIN TRANSACTION")
     with open(csv_path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
         batch: list[tuple] = []
         for row in reader:
             artist_mbids = row.get("artist_mbids", "") or ""
-            # Multiple MBIDs are pipe-separated; use the first one
             artist_mbid = artist_mbids.split("|")[0] if artist_mbids else ""
 
             batch.append((
@@ -64,17 +66,44 @@ def import_canonical_dump(
             imported += 1
 
             if len(batch) >= 50000:
-                _flush_batch(conn, batch)
+                conn.executemany("""
+                    INSERT INTO recordings (id, artist_mbid, artist_name, release_mbid,
+                                            release_name, recording_mbid, recording_name, score)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, batch)
+                # Also insert unique artists
+                artists_seen = set()
+                for row_b in batch:
+                    key = (row_b[1], row_b[2])
+                    if key not in artists_seen:
+                        artists_seen.add(key)
+                        conn.execute(
+                            "INSERT OR IGNORE INTO artists (artist_mbid, artist_name) VALUES (?, ?)",
+                            (row_b[1], row_b[2]),
+                        )
                 batch = []
 
             if max_rows and imported >= max_rows:
                 break
 
         if batch:
-            _flush_batch(conn, batch)
+            conn.executemany("""
+                INSERT INTO recordings (id, artist_mbid, artist_name, release_mbid,
+                                        release_name, recording_mbid, recording_name, score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, batch)
+            artists_seen2 = set()
+            for row_b in batch:
+                key = (row_b[1], row_b[2])
+                if key not in artists_seen2:
+                    artists_seen2.add(key)
+                    conn.execute(
+                        "INSERT OR IGNORE INTO artists (artist_mbid, artist_name) VALUES (?, ?)",
+                        (row_b[1], row_b[2]),
+                    )
 
+    conn.execute("COMMIT")
     _create_indexes(conn)
-    conn.commit()
     conn.close()
 
     elapsed = time.monotonic() - t0
@@ -102,25 +131,6 @@ def _create_schema(conn: sqlite3.Connection) -> None:
             score INTEGER DEFAULT 0
         );
     """)
-
-
-def _flush_batch(conn: sqlite3.Connection, batch: list[tuple]) -> None:
-    conn.executemany("""
-        INSERT INTO recordings (id, artist_mbid, artist_name, release_mbid,
-                                release_name, recording_mbid, recording_name, score)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, batch)
-
-    # Also insert unique artist names
-    artists_seen = set()
-    for row in batch:
-        key = (row[1], row[2])  # (mbid, name)
-        if key not in artists_seen:
-            artists_seen.add(key)
-            conn.execute(
-                "INSERT OR IGNORE INTO artists (artist_mbid, artist_name) VALUES (?, ?)",
-                (row[1], row[2]),
-            )
 
 
 def _create_indexes(conn: sqlite3.Connection) -> None:
