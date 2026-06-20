@@ -15,6 +15,7 @@ from .config import (
     resolve_output_base,
     validate_config,
 )
+from .db import CanonicalDB
 from .engine import CategorisationEngine
 from .executor import dry_run as print_dry_run, execute
 from .models import EnrichResult, FileResult
@@ -63,6 +64,11 @@ def cli() -> None:
     help="Override output base directory.",
 )
 @click.option(
+    "--fetch",
+    is_flag=True,
+    help="Look up missing genre from MusicBrainz before organising.",
+)
+@click.option(
     "--verbose", "-v",
     is_flag=True,
     help="Show matched tags per file.",
@@ -77,6 +83,7 @@ def organise(
     config: Path | None,
     dry_run: bool,
     output: Path | None,
+    fetch: bool,
     verbose: bool,
     quiet: bool,
 ) -> None:
@@ -103,6 +110,12 @@ def organise(
     if not source_list:
         click.echo("Error: at least one source path is required", err=True)
         sys.exit(1)
+
+    # Optional: enrich files with the canonical dump before organising
+    if fetch and not dry_run:
+        _enrich_with_canonical(source_list, cfg, verbose, quiet)
+    elif fetch and dry_run:
+        _preview_canonical(source_list, cfg, verbose, quiet)
 
     try:
         results = list(engine.categorise(source_list))
@@ -254,6 +267,69 @@ def tags(file: Path, verbose: bool) -> None:
         click.echo("\nRaw tags (all):")
         for k, v in tags.raw.items():
             click.echo(f"  {k:14s} = {v}")
+
+
+# ---------------------------------------------------------------------------
+# db
+# ---------------------------------------------------------------------------
+
+
+@click.group()
+def db() -> None:
+    """Manage the local MusicBrainz canonical database."""
+
+
+@db.command()
+@click.argument(
+    "csv_path",
+    type=click.Path(exists=True, path_type=Path),
+)
+@click.option(
+    "--db-path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output database path (default: ~/.config/musicman/canonical.db)",
+)
+def import_cmd(csv_path: Path, db_path: Path | None) -> None:
+    """Import the canonical MusicBrainz dump CSV into a local database.
+
+    CSV_PATH should point to canonical_musicbrainz_data.csv.
+    """
+    from .db import DEFAULT_DB_PATH, import_canonical_dump
+
+    target = db_path or DEFAULT_DB_PATH
+    click.echo(f"Importing {csv_path.name} into {target} ...")
+    click.echo("This will take a few minutes for the full 7GB dump.")
+
+    try:
+        count = import_canonical_dump(csv_path, target)
+    except Exception as exc:
+        click.echo(f"Error: {exc}", err=True)
+        raise click.Abort()
+
+    click.echo(f"Imported {count:,} rows.")
+    click.echo("Done.  Use 'musicman organise --fetch' for local lookups.")
+
+
+@db.command()
+def status() -> None:
+    """Show import status of the local canonical database."""
+    from .db import DEFAULT_DB_PATH
+
+    db_path = DEFAULT_DB_PATH
+    if not db_path.exists():
+        click.echo("No local database found.  Run 'musicman db import' first.")
+        return
+
+    db_conn = CanonicalDB(db_path)
+    artists = db_conn.artist_count()
+    recordings = db_conn.recording_count()
+    size_mb = db_path.stat().st_size / 1024 / 1024
+    click.echo(
+        f"Database: {db_path} ({size_mb:.0f} MB)\n"
+        f"Artists:  {artists:,}\n"
+        f"Recordings: {recordings:,}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -484,6 +560,62 @@ def _print_enrich(r: EnrichResult, verbose: bool, dry_run: bool) -> None:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+# Canonical enrichment helpers
+# ---------------------------------------------------------------------------
+
+
+def _enrich_with_canonical(
+    source_list: list[Path],
+    cfg,
+    verbose: bool,
+    quiet: bool,
+) -> None:
+    """Enrich files with genre from the local canonical dump."""
+    from .sources.canonical import CanonicalDumpSource
+    from .utils import scan_files, read_tags, write_tags
+
+    source = CanonicalDumpSource()
+    enriched = 0
+    for path in scan_files(source_list, cfg.settings.supported_extensions):
+        tags = read_tags(path)
+        if not tags.artist or not tags.title:
+            continue
+        if tags.genre:
+            continue
+        result = source.fetch(path, tags)
+        if result.genre:
+            write_tags(path, genre=result.genre)
+            enriched += 1
+            if not quiet:
+                click.echo(f"  [MB] {path.name} -> genre={result.genre}")
+    if not quiet and enriched:
+        click.echo(f"\nEnriched {enriched} file(s) from MusicBrainz.\n")
+
+
+def _preview_canonical(
+    source_list: list[Path],
+    cfg,
+    verbose: bool,
+    quiet: bool,
+) -> None:
+    """Preview what canonical enrichment would do without writing."""
+    from .sources.canonical import CanonicalDumpSource
+    from .utils import scan_files, read_tags
+
+    source = CanonicalDumpSource()
+    click.echo("\n-- MusicBrainz enrichment preview (dry run) --")
+    for path in scan_files(source_list, cfg.settings.supported_extensions):
+        tags = read_tags(path)
+        if tags.genre:
+            continue
+        if not tags.artist or not tags.title:
+            click.echo(f"  [-] {path.name}: no artist+title, skipping")
+            continue
+        result = source.fetch(path, tags)
+        if result.genre:
+            click.echo(f"  [.] {path.name} -> genre={result.genre}")
+        else:
+            click.echo(f"  [-] {path.name}: no genre found in MusicBrainz")
 
 
 def _setup_logging(verbose: bool) -> None:
