@@ -17,8 +17,8 @@ from .config import (
 )
 from .engine import CategorisationEngine
 from .executor import dry_run as print_dry_run, execute
-from .models import FileResult
-from .utils import read_tags
+from .models import EnrichResult, FileResult
+from .utils import read_tags, scan_files, write_tags
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +252,175 @@ def tags(file: Path, verbose: bool) -> None:
         click.echo("\nRaw tags (all):")
         for k, v in tags.raw.items():
             click.echo(f"  {k:14s} = {v}")
+
+
+# ---------------------------------------------------------------------------
+# enrich
+# ---------------------------------------------------------------------------
+
+
+def _enrich_file(
+    source: Path,
+    engine: CategorisationEngine,
+    tags,
+    force: bool,
+) -> EnrichResult:
+    """Match *source* against rules and write genre tag if missing."""
+    rule, _ = engine._match_rule(tags)
+    rule_name = rule.name if rule else None
+    if rule_name is None:
+        return EnrichResult(source=source, error="no matching rule")
+
+    # Skip if genre already set (unless --force)
+    if tags.genre and not force:
+        return EnrichResult(source=source, rule=rule_name, skipped=True)
+
+    try:
+        write_tags(source, genre=rule_name)
+        return EnrichResult(
+            source=source, rule=rule_name, tags_written=["genre"],
+        )
+    except Exception as exc:
+        return EnrichResult(
+            source=source, rule=rule_name, error=str(exc),
+        )
+
+
+@cli.command()
+@click.argument(
+    "sources",
+    nargs=-1,
+    type=click.Path(exists=True, path_type=Path),
+)
+@click.option(
+    "--config", "-c",
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to rules JSON file.",
+)
+@click.option(
+    "--dry-run", "-n",
+    is_flag=True,
+    help="Preview only - no tags are written.",
+)
+@click.option(
+    "--force", "-f",
+    is_flag=True,
+    help="Overwrite existing genre tags.",
+)
+@click.option(
+    "--verbose", "-v",
+    is_flag=True,
+    help="Show matched rule per file.",
+)
+@click.option(
+    "--quiet",
+    is_flag=True,
+    help="Suppress per-file output; show summary only.",
+)
+def enrich(
+    sources: tuple[Path, ...],
+    config: Path | None,
+    dry_run: bool,
+    force: bool,
+    verbose: bool,
+    quiet: bool,
+) -> None:
+    """Write genre tags to music files based on matching rules.
+
+    Reads each file, matches it against your rules, and writes the
+    matched rule name as the genre tag.  Files that already have a
+    genre tag are skipped (use --force to overwrite).
+
+    Run this before organise to enrich your library so future runs
+    match on genre directly.
+    """
+    _setup_logging(verbose)
+
+    try:
+        cfg = load_config(config)
+    except ConfigError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+
+    engine = CategorisationEngine(cfg)
+    source_list = list(sources)
+
+    if not source_list:
+        click.echo("Error: at least one source path is required", err=True)
+        sys.exit(1)
+
+    if not quiet:
+        if dry_run:
+            click.echo("-- Dry run - no tags will be written --\n")
+        else:
+            click.echo()
+
+    results: list[EnrichResult] = []
+    for source_path in scan_files(
+        source_list,
+        cfg.settings.supported_extensions,
+        cfg.settings.follow_symlinks,
+    ):
+        try:
+            tags = read_tags(source_path)
+        except Exception as exc:
+            results.append(
+                EnrichResult(source=source_path, error=f"failed to read: {exc}")
+            )
+            continue
+
+        if dry_run:
+            # Match but don't write
+            rule, _ = engine._match_rule(tags)
+            rule_name = rule.name if rule else None
+            if rule_name is None:
+                results.append(
+                    EnrichResult(source=source_path, error="no matching rule")
+                )
+                continue
+            if tags.genre and not force:
+                results.append(
+                    EnrichResult(source=source_path, rule=rule_name, skipped=True)
+                )
+                continue
+            results.append(
+                EnrichResult(
+                    source=source_path,
+                    rule=rule_name,
+                    tags_written=["genre"],
+                )
+            )
+            continue
+
+        result = _enrich_file(source_path, engine, tags, force)
+        results.append(result)
+
+    for r in results:
+        if not quiet:
+            _print_enrich(r, verbose, dry_run)
+
+    enriched = sum(1 for r in results if r.tags_written)
+    skipped = sum(1 for r in results if r.skipped)
+    errors = sum(1 for r in results if r.error)
+
+    click.echo(
+        f"\nProcessed {len(results)} file{'s' if len(results) != 1 else ''}: "
+        f"{enriched} enriched, "
+        f"{skipped} skipped, "
+        f"{errors} error{'s' if errors != 1 else ''}"
+    )
+
+
+def _print_enrich(r: EnrichResult, verbose: bool, dry_run: bool) -> None:
+    if r.error:
+        click.echo(f"  [!] {r.source.name}: {r.error}")
+        return
+    if r.skipped:
+        if verbose:
+            click.echo(f"  [-] {r.source.name}: already has genre ({r.rule})")
+        return
+    prefix = "  [w]" if not dry_run else "  [.]"
+    click.echo(f"{prefix} {r.source.name} -> genre={r.rule}")
 
 
 # ---------------------------------------------------------------------------

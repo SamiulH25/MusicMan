@@ -189,3 +189,68 @@ def format_duration(seconds: float) -> str:
     minutes = int(seconds // 60)
     secs = int(seconds % 60)
     return f"{minutes}:{secs:02d}"
+
+
+# ---------------------------------------------------------------------------
+# Tag writing
+# ---------------------------------------------------------------------------
+
+class UnsupportedFormatError(ValueError):
+    """Raised when mutagen can't save this file format."""
+
+
+def write_tags(
+    path: Path,
+    *,
+    genre: str | None = None,
+    title: str | None = None,
+    artist: str | None = None,
+    album: str | None = None,
+    albumartist: str | None = None,
+    date: str | None = None,
+) -> None:
+    """Write metadata tags to *path* using mutagen's easy API.
+
+    Only non-``None`` values are written; existing tags are preserved.
+
+    Raises
+    ------
+    UnsupportedFormatError
+        Format doesn't support tag writing.
+    mutagen.MutagenError
+        File is corrupt or write failed.
+    """
+    ext = path.suffix.lower()
+    if ext not in EXTENSIONS_MAP:
+        raise UnsupportedFileError(
+            f"Unsupported file type {ext!r}: {path.name}"
+        )
+
+    audio = mutagen.File(str(path), easy=True)
+    if audio is None:
+        raise UnsupportedFormatError(
+            f"Cannot open {path.name} for tag writing"
+        )
+
+    changed = False
+    if genre is not None:
+        audio["genre"] = genre
+        changed = True
+    if title is not None:
+        audio["title"] = title
+        changed = True
+    if artist is not None:
+        audio["artist"] = artist
+        changed = True
+    if album is not None:
+        audio["album"] = album
+        changed = True
+    if albumartist is not None:
+        audio["albumartist"] = albumartist
+        changed = True
+    if date is not None:
+        audio["date"] = date
+        changed = True
+
+    if changed:
+        audio.save()

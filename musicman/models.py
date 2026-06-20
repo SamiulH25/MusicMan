@@ -110,3 +110,14 @@ class FileResult:
     tags: Optional[MusicTags] = None
     error: Optional[str] = None
     skipped: bool = False
+
+
+@dataclass
+class EnrichResult:
+    """Outcome of enriching a single file's tags."""
+
+    source: Path
+    rule: Optional[str] = None
+    tags_written: list[str] = field(default_factory=list)
+    error: Optional[str] = None
+    skipped: bool = False
