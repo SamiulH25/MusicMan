@@ -59,7 +59,6 @@ def import_canonical_dump(
                 row.get("release_name", ""),
                 row.get("recording_mbid", ""),
                 row.get("recording_name", ""),
-                row.get("combined_lookup", ""),
                 int(row.get("score", 0)),
             ))
             imported += 1
